@@ -1,0 +1,114 @@
+
+module game(
+input rx_done_tick,
+input vsync,
+input clk,rst,ready,
+input right,left,up,down,
+output [9:0] wolf_x,wolf_y,egg_x,egg_y
+//output [6:0] egg_count,
+    );
+  reg  [9:0] Wolf_x,Wolf_y,Egg_x,Egg_y;
+  reg  [6:0] Egg_count;
+  reg  [3:0] state;
+  reg Fail;
+  reg Ready;
+  reg [31:0] count; 
+  reg [9:0] key_count;
+  reg [7:0] Key_kode;
+  reg start;
+  
+  initial begin
+        start=0;
+        count=0;
+        state = 0;
+        Fail = 0;
+        Wolf_x = 120;
+        Wolf_y = 400;
+        Egg_x = 130;
+        Egg_y =60;
+        Egg_count=0;
+  end
+  
+  assign wolf_x =Wolf_x;
+  assign wolf_y =Wolf_y;
+  assign egg_x =Egg_x;
+  assign egg_y =Egg_y;
+  
+  
+  always@(posedge clk)
+  begin
+    if(rst==1)begin
+        state = 0;
+        Fail = 0;
+        Wolf_x = 50;
+        Wolf_y = 400;
+        Egg_x = 130;
+        Egg_y =40;
+        Egg_count=0;
+        end 
+    case(state)
+        4'h0 : if( ready==1) state=4'h1;
+        4'h1 : begin 
+                if (vsync==0) begin
+                if (right) begin
+                if (Wolf_x <= 470)
+                Wolf_x =Wolf_x+1;
+               
+                end
+                if(left) begin
+               
+                if  (Wolf_x >= 10) 
+                Wolf_x =Wolf_x-1;
+                
+                end
+                if(up) begin
+                if (Wolf_y >= 60)
+                 Wolf_y =Wolf_y-1;
+                 end
+             
+                end
+                if(down) begin
+                if (Wolf_y <= 400)
+                 Wolf_y =Wolf_y+1;
+                
+                end
+                state =4'h2;
+               end 
+               
+        4'h2: if((((Wolf_x+140>=Egg_x)&(Wolf_x+100<=Egg_x))&(Wolf_y==Egg_y)))begin
+                Egg_y=40;
+                if(Wolf_x>=300)
+                Egg_x = Wolf_x -80;
+                else Egg_x = Wolf_x;//+80;      
+                Egg_count=Egg_count+1;
+                state =4'h1;
+                end
+               else begin
+               if(Egg_y >=400) begin
+                state = 4'h3;
+                 end
+                else state = 4'h1;
+                end   
+         4'h3: begin
+                Fail = 1;
+                Wolf_x = 10;
+                Wolf_y = 400;
+                Egg_x = 130;
+                Egg_y =40;
+                state = 4'h3;
+                end
+        endcase
+  end 
+  
+  /*always@(posedge clk) begin 
+  count= count+1;
+  if (count == 15000)begin
+  //if (Fail==0)
+  Egg_y= Egg_y+10;
+  count=0;
+  if (Egg_y==400) Egg_y=40;
+  end
+  end*/
+ 
+  //assign egg_count = Egg_count;
+endmodule

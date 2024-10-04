@@ -1,0 +1,132 @@
+module ps_2_rx
+(
+    input CLK, PS_CLK, PS_DATA, RESET,
+    output reg PS_OUT,
+    output reg [7:0] SCANCODE,
+    output reg [7:0] checkcode,
+    output stop
+);
+reg STOP;
+assign stop=STOP;
+reg [2:0] counter;
+reg [3:0] state;
+reg [7:0] scancode;
+reg even;
+reg error;
+reg scan_ready;
+wire ps_clk;
+wire ps_data;
+
+initial begin
+    counter <= 0;
+    state <= 0;
+    scancode <= 0;
+    checkcode <= 0;
+    even <= 1;
+    error = 0;
+    scan_ready <= 0;
+end
+
+sync sn1(
+    .in(PS_CLK),
+    .clk(CLK),
+    .out(ps_clk)
+);
+
+sync sn2(
+    .in(PS_DATA),
+    .clk(CLK),
+    .out(ps_data)
+);
+
+always@(posedge CLK)
+begin
+
+    STOP = 0 ^ (~(scancode == checkcode));
+    if(scan_ready)
+    begin
+        SCANCODE = scancode;
+        PS_OUT = 1;
+    end
+    else begin 
+    PS_OUT = 0;
+    SCANCODE =0;
+    end
+end
+
+always@(negedge ps_clk)
+begin
+    if(error)
+    begin
+        scancode <= 8'hf;
+        state <= 0;
+    end
+    case(state)
+    0: begin
+            if(!ps_data) state <= state + 1; //start bit always 0
+       end
+    1: begin //DATA part of package
+            counter = counter + 1;
+            scancode = scancode >> 1;
+            scancode[7] = ps_data;
+            if(ps_data) even = !even;
+            if(!counter) state = state + 1;
+       end
+    2: if(even == ps_data) state <= state + 1; //even bit
+       else error <= 1;
+    3: 
+       begin
+            if(ps_data)//stop bit always 1
+                begin
+                    state <= state + 1;
+                    scan_ready <= 1;
+                end 
+            else error <= 1;
+       end
+    4: begin //start bit + first 4 bits of FO code
+            if(!ps_data)
+            begin
+                counter = counter + 1;
+                if(counter == 5)
+                begin
+                    state = state + 1;
+                    counter = 0;
+                end
+            end
+       end
+    5: begin // last 4 bits of FO code + stop bit
+            if(ps_data)
+            begin
+                counter = counter + 1;
+                if(counter == 5)
+                begin
+                    state = state + 1;
+                    counter = 0;
+                    even = 1;
+                end
+            end
+            else error = 1;
+       end
+    6: if(!ps_data) state <= state + 1; //start bit always 0
+    7: begin
+            counter = counter + 1;
+            checkcode = checkcode >> 1;
+            checkcode[7] = ps_data;
+            if(ps_data) even = !even;
+            if(!counter) state = state + 1;
+       end
+    8: if(even == ps_data) state <= state + 1; //even bit
+       else error <= 1;
+    9: begin //stop bit always 1
+            if(ps_data)
+            begin
+                state <= 0;
+                even <= 1;
+                scan_ready <= 0;
+            end
+            else error <= 1;
+       end
+    endcase
+end
+
+endmodule

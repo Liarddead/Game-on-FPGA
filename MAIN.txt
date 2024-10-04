@@ -1,0 +1,85 @@
+module Main(
+input wire clk, reset, ready,
+input wire ps2d, ps2c,
+output wire h_sync, v_sync,
+output wire VGA_R_3 ,
+output wire VGA_G_3 ,
+output wire VGA_B_3 ,
+output [7:0] AN,
+output SEG_0,SEG_1,SEG_2,SEG_3,SEG_4,SEG_5,SEG_6
+    );
+    
+  
+ 
+reg PS2_clk, PS2_dat;
+wire [7:0] key_kode;
+reg rst;
+reg CLOCK_ENABLE = 0;
+wire  [9:0] Wolf_x,Wolf_y,Egg_x,Egg_y;
+wire rx_done_tick;
+wire right,left,up,down;
+
+game uut2 ( 
+        .clk(clk),
+        .rst(reset),
+        .ready(ready),
+        .rx_done_tick(rx_done_tick),
+        .vsync(v_sync),
+        .right(right),
+        .left(left),
+        .up(up),
+        .down(down),
+        .wolf_x(Wolf_x),
+        .wolf_y(Wolf_y),
+        .egg_x (Egg_x),
+        .egg_y (Egg_y)
+        );
+  vga_top uut3(
+               .clk(clk),
+               .reset(reset),
+               .wolf_x(Wolf_x),
+               .wolf_y(Wolf_y),
+               .egg_x (Egg_x),
+               .egg_y (Egg_y),
+               .hsync(h_sync),
+               .vsync(v_sync),
+               .RGB({VGA_R_3,VGA_G_3,VGA_B_3})
+  );
+wire clk_out;
+div_clock m0(
+.clk(clk),
+.rst(reset),
+.clk_out(clk_out)
+);
+wire rx_tick;
+wire stop;
+ps_2_rx m1(
+.CLK(clk),
+.RESET(reset),
+.PS_DATA(ps2d),
+.PS_CLK(ps2c),
+.PS_OUT(rx_tick),
+.SCANCODE(key_kode),
+.stop(stop)
+);
+
+decoder m4 (
+.CLK(clk),
+.INPUT(rx_tick),
+.STOP(stop),
+.CODE(key_kode),
+.is_down_pressed(down),
+.is_up_pressed(up),
+.is_right_pressed(right),
+.is_left_pressed(left)
+);
+
+SEMISEGMENT m2(
+.clk(clk_out),
+.RESET(reset),
+.NUMBER({ 24'h000000, key_kode }),
+.AN(AN),
+.SEG({ SEG_6,SEG_5,SEG_4,SEG_3,SEG_2,SEG_1,SEG_0})
+);
+ 
+endmodule
